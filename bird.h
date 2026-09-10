@@ -27,6 +27,7 @@ class Bird
         int score;
 
         Bird(SDL_Texture *up, SDL_Texture *mid, SDL_Texture *down, SDL_Renderer *renderer);
+        ~Bird();
 
         void init();
         void render();

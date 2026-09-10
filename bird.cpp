@@ -1,7 +1,6 @@
 #include "bird.h"
 void Bird::init()
 {
-    point = Mix_LoadWAV("sound/point.wav");
     currentRenderingTexture = mid;
     animationFrames = 0;
     score = 0;
@@ -17,7 +16,16 @@ void Bird::init()
 
 Bird::Bird(SDL_Texture *up, SDL_Texture *mid, SDL_Texture *down, SDL_Renderer *renderer) : up(up), mid(mid), down(down), renderer(renderer)
 {
+    point = Mix_LoadWAV("sound/point.wav");
     init();
+}
+
+Bird::~Bird()
+{
+    if (point) {
+        Mix_FreeChunk(point);
+        point = nullptr;
+    }
 }
 
 void Bird::update(bool jump, float elapsedTime)
