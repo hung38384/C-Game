@@ -5,6 +5,18 @@ Game::Game(const char *title, int width, int height)
     window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+    }
+    die = Mix_LoadWAV("sound/die.wav");
+    hit = Mix_LoadWAV("sound/hit.wav");
+    swooshing = Mix_LoadWAV("sound/swooshing.wav");
+    wing = Mix_LoadWAV("sound/wing.wav");
+
+    if (die == NULL || hit == NULL || swooshing == NULL || wing == NULL) {
+        printf("Failed to load sounds! SDL_mixer Error: %s\n", Mix_GetError());
+    }
+
     loadTextures();
 
     bird = new Bird(tex_playerDown, tex_playerMid, tex_playerUp, renderer);
@@ -20,17 +32,6 @@ Game::Game(const char *title, int width, int height)
 
 void Game::init()
 {
-    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
-        printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
-    }
-    die = Mix_LoadWAV("sound/die.wav");
-    hit = Mix_LoadWAV("sound/hit.wav");
-    swooshing = Mix_LoadWAV("sound/swooshing.wav");
-    wing = Mix_LoadWAV("sound/wing.wav");
-
-    if (die == NULL || hit == NULL || swooshing == NULL || wing == NULL) {
-        printf("Failed to load sounds! SDL_mixer Error: %s\n", Mix_GetError());
-    }
 
     bird->init();
 
@@ -124,8 +125,8 @@ void Game::Start()
             pausedButtonClicked = true;
     }
 
-    if(frameDelay > dt.count()) // giữ cho game chạy với tốc độ frame rate ổn định
-        SDL_Delay(frameDelay - dt.count());
+    if(frameDelay > dt.count() * 1000) // giữ cho game chạy với tốc độ frame rate ổn định
+        SDL_Delay(frameDelay - dt.count() * 1000);
     
     if(gameStarted && !gamePaused)
     {
@@ -136,7 +137,12 @@ void Game::Start()
 
     if(pausedButtonClicked == true ){
         gamePaused = !gamePaused; // Chuyển trạng thái gamePaused
-        pausedButtonClicked = false;}
+        pausedButtonClicked = false;
+    }
+
+    if(gameStarted && !gameover) {
+        render();
+    }
 }
 
     Close();
@@ -161,7 +167,8 @@ void Game::update(bool jump, float elapsedTime, bool &gameover)
     } else if (bird->score > 90) {
         pipeSpeed = PIPE_V + 5;
     }
-        p->bottom_dst.x -= pipeSpeed;
+        // Pipe movement now scales with elapsedTime to decouple from FPS drops
+        p->bottom_dst.x -= pipeSpeed * (elapsedTime * 60.0f); // 60 is the target FPS
         p->top_dst.x = p->bottom_dst.x;
 
         if (p->bottom_dst.x + p->bottom_dst.w  < 0)
@@ -183,15 +190,13 @@ void Game::update(bool jump, float elapsedTime, bool &gameover)
     }
        
 
-    ground1 -= PIPE_V;
-    ground2 -= PIPE_V;
+    ground1 -= PIPE_V * (elapsedTime * 60.0f);
+    ground2 -= PIPE_V * (elapsedTime * 60.0f);
 
     if (ground1 + WIDTH < 0)
         ground1 = WIDTH - 10;
     if (ground2 + WIDTH < 0)
         ground2 = WIDTH - 10;
-
-    render();
 }
 
 
@@ -304,7 +309,9 @@ void Game::gameOver()
     if(playagain)
     {
         SDL_Delay(500);
-        Start();
+        gameover = false;
+        gameStarted = true;
+        init();
     } else 
     {
         isRunning = false;
@@ -411,10 +418,41 @@ void Game::loadTextures()
 
 void Game::Close() {
 
-    SDL_DestroyTexture(tex_guild);
-    SDL_DestroyTexture(tex_dung);
+    SDL_DestroyTexture(tex_backgroundD);
+    SDL_DestroyTexture(tex_backgroundN);
+    SDL_DestroyTexture(tex_ground);
+    SDL_DestroyTexture(tex_playerUp);
+    SDL_DestroyTexture(tex_playerMid);
+    SDL_DestroyTexture(tex_playerDown);
+    SDL_DestroyTexture(tex_pipe);
+    for(int i = 0; i < 10; i++) {
+        SDL_DestroyTexture(tex_numbers[i]);
+    }
     SDL_DestroyTexture(tex_gameover);
+    SDL_DestroyTexture(tex_getreddy);
+    SDL_DestroyTexture(tex_guild);
+    SDL_DestroyTexture(tex_score);
+    SDL_DestroyTexture(tex_pause);
+    SDL_DestroyTexture(tex_resume);
+    SDL_DestroyTexture(tex_vang);
+    SDL_DestroyTexture(tex_bac);
+    SDL_DestroyTexture(tex_dong);
+    SDL_DestroyTexture(tex_dung);
+
+    Mix_FreeChunk(die);
+    Mix_FreeChunk(hit);
+    Mix_FreeChunk(swooshing);
+    Mix_FreeChunk(wing);
+
+    delete bird;
+
+    while(!pipes.empty()) {
+        delete pipes.front();
+        pipes.pop_front();
+    }
+
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    Mix_CloseAudio();
     SDL_Quit();
 }
